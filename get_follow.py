@@ -96,27 +96,19 @@ def get_tweet(twitter_id,search_type):
         if id_list_count == id_list_sub_count:
             print("-----------------読み込み制限だ！！")
 #-------------------------------------------------------------------------------------------------------------
-            #ページを更新(ブラウザのリフレッシュ)ではサイト上部まで戻ってしまう
-            
-            # 「やりなおす」のボタンがクリック出来ない！(指定できない)　classがサイトをchromeを開くたびに変更される！(※タブが変わってもclassは変わらなかった)
-            # ↓最初はこれでやろうとした　でも探せなかった　driber.page_sourceで確認すると「検証」で見えている一部しか読み込んでいなかった
-            # driver.find_element(By.PARTIAL_LINK_TEXT,"やりなおす").click()
-
-            # 次に適当なエレメントを指定してinnerHTMLからclass_nameを取得しようとした。　しかしどこのclassも毎回変更されるので参考にできなかった
-            # split_reload_button()　←実際に書いた関数
-
-            # 正直お手上げ……
-
-
-            time.sleep(900)
+            print("---------------10秒待機するね!!")
+            # 実際はtime.sleep(900)だけど300ごとに試す
+            time.sleep(10)
+            print("---------------10秒分待ったよ!! また確かめるね!!")
+            re_search_elements()
 #-------------------------------------------------------------------------------------------------------------
         else:
             # id_list_subを更新する
             id_list_sub_count = id_list_count
             print("id_list_sub::"+str(id_list_sub_count))
 
-        scroll_to_elem()
-        print("-----------------スクロールしたよ！！")
+            scroll_to_elem()
+            print("-----------------スクロールしたよ！！")
 
     return id_list
 
@@ -159,14 +151,14 @@ def translator(target):
     return result
 
 
-def login_twitter(account, password, driver):
+def login_twitter():
     # ログインページを開く
     driver.get("https://twitter.com/i/flow/login")
-    time.sleep(2)
+    time.sleep(4)
 
     # account入力
     element_account = driver.find_element(By.NAME,"text")
-    element_account.send_keys(account)
+    element_account.send_keys(ACOUNT_ID)
     time.sleep(1.5) 
     # 次へボタンのXPathがこれでしか取れなかった・・・
     # 次へボタンクリック
@@ -176,7 +168,7 @@ def login_twitter(account, password, driver):
 
     # パスワード入力
     element_pass = driver.find_element(By.NAME,"password")
-    element_pass.send_keys(password)
+    element_pass.send_keys(ACOUNT_PASS)
     time.sleep(1.5) 
     # ログインボタンクリック
     element_login = driver.find_element(By.XPATH,'//*[@data-testid="LoginForm_Login_Button"]')
@@ -211,7 +203,7 @@ def get_user_id(id_list):
         user_id = split_userID(html_text) #userIDはlist
     
         if not user_id: #空判定 なぜか空のlistが出来たため応急的
-            print("-----------------あれ、ユーザーIDが空だ！！")
+            print("-----------------あれ、ユーザーIDが空だ!!")
             break
         
         else:
@@ -232,14 +224,53 @@ def split_userID(html_text):
 
     return usreID
 
-def split_reload_button():
-    elems_article = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-    html_text = elems_article[-1].get_attribute('innerHTML')
-    p = r'class="(\w+)">'
-    m = re.findall(p, html_text)
-    print(m[-1])
-    return m[-1]
+# def split_reload_button():
+#     elems_article = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+#     html_text = elems_article[-1].get_attribute('innerHTML')
+#     p = r'class="(\w+)">'
+#     m = re.findall(p, html_text)
+#     print(m[-1])
+#     return m[-1]
 
+# もう読み込めない判定がされたのちに動作する関数　「やりなおす」のclassを返す
+def re_search_elements():
+
+    time.sleep(2)
+    # data-testid="cellInnerDiv"はある状態で発生してますか？
+    try:
+        elems_articles = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+        print("----------------------data-testid='cellInnerDiv'はあったよ!!")
+        html_text = elems_articles[-1].get_attribute('innerHTML')
+
+        file_path = "firststep.text"
+        wfo = open(file_path, "w",encoding='UTF-8')
+        wfo.write(html_text)
+        
+        p = r'class="(.*?)"'
+        m = re.findall(p, html_text)
+        class_name = m[4]
+    except:
+        elems_article = driver.find_element(By.XPATH,".//main")
+        print("----------------------data-testid='cellInnerDiv'がない!!mainからさがすよ!!")
+        html_text = elems_article.get_attribute('innerHTML')
+        
+        file_path = "firststep.text"
+        wfo = open(file_path, "w",encoding='UTF-8')
+        wfo.write(html_text)
+        
+        wfo.close()
+        p = r'class="(.*?)"'
+        m = re.findall(p, html_text)
+        class_name = m[-5]
+    
+    print(class_name)
+    # driver.find_element(By.CLASS_NAME,a).click()
+    driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
+    print(class_name)
+    print("------------「やりなおす」をクリックしたよ")
+
+    
+    return class_name
 
 
 
@@ -262,7 +293,7 @@ def GET_FOLLOWS(target_csv_name,search_type):
     #　ヘッドレスモードでブラウザを起動
     options = Options()
     options.add_argument('--headless')
-    login_twitter(ACOUNT_ID , ACOUNT_PASS , driver)
+    login_twitter()
 
     # global変数へ代入できるように
     global TWITTER_ID
