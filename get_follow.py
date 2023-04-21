@@ -1,7 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 # from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+# from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 import time
@@ -12,15 +12,18 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 import csv
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.support.ui import WebDriverWait
+import pickle
 
 # -----global_variable-----
 SCROLL_COUNT = 100000000000000000
 
 SCROLL_WAIT_TIME = 1
 ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
-TWITTER_ID = ""
 FOLLOWING_COUNT ,FOLLOWER_COUNT = 0,0
+USER_ELEMS = []
+FINISH_3COUNT = 0
+LOCK_ACCOUNT = False
 # -------------------------
 
 
@@ -56,16 +59,25 @@ driver.implicitly_wait(3) # きちんと動作してる!!えらい!!
 
 
 def get_tweet(twitter_id,search_type):
+
+    global USER_ELEMS, SCROLL_COUNT
+
     # searchタイプの選択によってfollow_count,follower_countの選択を自動化させよう!!!　個々の引数にいらない。グローバル化させて利用するのを選択させよう　
     url = 'https://twitter.com/' + twitter_id +"/"+ search_type
 
     id_list = []
     # 現在のid_list数
     id_list_count = 0
+    height = 0
     # 前回のid_list数
     id_list_sub_count = 0
-    time.sleep(5)
+    height_sub = 0
+    time.sleep(0.5)
+
     driver.get(url)
+    time.sleep(0.5)
+    if driver.current_url == 'https://twitter.com/' + twitter_id:
+        return id_list
 
 
     if search_type == 'followers':
@@ -73,52 +85,57 @@ def get_tweet(twitter_id,search_type):
     else:
         limit_value = FOLLOWING_COUNT
 
+    USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
     for i in range(SCROLL_COUNT):
 
-        # try:                                   
-        #     # driver.find_element(By.XPATH,'//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/section/div/div/div[24]/div/div/div[2]')
-        #     driver.find_element(By.CLASS_NAME,'css-18t94o4 css-1dbjc4n r-l5o3uw r-42olwf r-sdzlij r-1phboty r-rs99b7 r-2yi16 r-1qi8awa r-1ny4l3l r-ymttw5 r-o7ynqc r-6416eg r-lrvibr')
-        #     print("-----------------読み込み制限だ！！")
-        #     time.sleep(900)
-        #     break
-        # except:        
-        #     # 存在しない
-        #     print("----------------------BAD")
+        # 「やりなおす」はあるか？同時にUSERS_ELEMSへ要素を代入
+        if check_elem_REsearch():
 
-
-
-        id_list = get_user_id(id_list)
-        id_list_count = len(id_list)
-        print("id_list::"+str(id_list_count))
-        print("id_list_sub::"+str(id_list_sub_count))
-
-        # ○秒間待つ（サイトに負荷を与えないと同時にコンテンツの読み込み待ち）
-        time.sleep(SCROLL_WAIT_TIME) #実験的wait
-
-        #id_listが垢のfollow or follower数と一緒なら終了判定
-        if limit_value-15 < len(id_list) < limit_value+15:
-            print("-----------------限界まで読み込めたよ！！")
-            break
-      
-        #前回のid_list数と同じなら読み込みが停止したとみなす                               
-        if id_list_count == id_list_sub_count:
-            print("-----------------読み込み制限だ！！")
-#-------------------------------------------------------------------------------------------------------------
-            print("---------------10秒待機するね!!")
-            # 実際はtime.sleep(900)だけど300ごとに試す
-            time.sleep(10)
-            print("---------------10秒分待ったよ!! また確かめるね!!")
-            re_search_elements()
-#-------------------------------------------------------------------------------------------------------------
-        else:
-            # id_list_subを更新する
-            id_list_sub_count = id_list_count
-            print("id_list_sub::"+str(id_list_sub_count))
+            USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+            
+            id_list = get_user_id(id_list)
+            print(len(id_list))
 
             scroll_to_elem()
-            print("-----------------スクロールしたよ！！")
+            # height = driver.execute_script("return document.body.scrollHeight")
+            # if height == height_sub:
+            #     print("-----------------限界まで読み込めたよ！！")
+            #     break
+            
+            
+            # print("-----------------------scroll後")
+            # print("-----------------------height::"+str(height))
+            # print("-----------------------height_sub::"+str(height_sub))
 
+            # height_sub = height
+
+
+        if FINISH_3COUNT >= 3:
+            break
+            # # ○秒間待つ（サイトに負荷を与えないと同時にコンテンツの読み込み待ち）
+            # time.sleep(SCROLL_WAIT_TIME) #実験的wait
+
+
+
+            #前回のid_list数と同じなら読み込みが停止したとみなす                               
+    #         if id_list_count == id_list_sub_count:
+    #             print("-----------------読み込み制限だ！！")
+    # #-------------------------------------------------------------------------------------------------------------
+    #             print("---------------10秒待機するね!!")
+    #             # 実際はtime.sleep(900)だけど10ごとに試す
+    #             time.sleep(10)
+    #             print("---------------10秒分待ったよ!! また確かめるね!!")
+    #             # re_search_elements()
+    # #-------------------------------------------------------------------------------------------------------------
+            # else:
+            #     # id_list_subを更新する
+            #     id_list_sub_count = id_list_count
+            #     print("id_list_sub::"+str(id_list_sub_count))
+
+                # scroll_to_elem()
+                # print("-----------------スクロールしたよ！！")
+    SCROLL_COUNT = 100000000000000000
     return id_list
 
 
@@ -133,12 +150,13 @@ def count_follow_id(twitter_id):
     #読み込むまでを試したがダメだったのでtime.sleep推奨
     # time.sleep(3) # driver.get後のtime.sleepはマジでこれしか動かない。なんで？？？？？
     # wait.until(EC.presence_of_all_elements_located)
-
+    class_name = 'css-901oao css-16my406 r-18jsvk2 r-1tl8opc r-1b43r93 r-b88u0q r-1cwl3u0 r-bcqeeo r-qvutc0'
     #鍵垢判定　もし鍵垢ならフォロワーを読めないのでここで判定。鍵垢なら空を返す
     try:
-
-        follower_count = driver.find_element(By.XPATH,'//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[5]/div[2]/a/span[1]').text
-        follow_count = driver.find_element(By.XPATH,'//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/div/div[5]/div[1]/a/span[1]').text
+        count = driver.find_elements(By.XPATH,f".//span[@class='{class_name}']")
+        follow_count = count[0].text
+        print(follow_count)
+        follower_count = count[1].text
         # print(follower_count,follow_count)
         # print(type(follower_count),type(follow_count))
         
@@ -148,6 +166,7 @@ def count_follow_id(twitter_id):
     
     except NoSuchElementException:
         FOLLOWING_COUNT,FOLLOWER_COUNT = "" , ""
+    
 
 
 #万や億などの表記を日本語に直す　1,000などを1000に直す
@@ -165,7 +184,7 @@ def login_twitter():
     # ログインページを開く
     time.sleep(2) #重要なのはこっちか??　下のgetする前にdriver=chromeをしてるけどその読み込みが終わってないのにgetしてるからエラーが出てるかも知れない
     driver.get("https://twitter.com/i/flow/login")
-    
+    # driver.get("https://note.nkmk.me/python-if-elif-else/")
     
     # account入力    
     element_account = driver.find_element(By.NAME,"text")
@@ -189,42 +208,44 @@ def login_twitter():
 
 
 def scroll_to_elem():
-
+    global USER_ELEMS
     ################# time.sleep(3) #読み込むまでを試したがダメだったのでtime.sleep推奨　←find_elementのまえにあるけどほんとにいる？？？
     # 最後の要素の一つ前までスクロール
-    elems_article = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+    USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
-    last_elem = elems_article[-2]
+    last_elem = USER_ELEMS[-2]
 
     actions = ActionChains(driver)
     actions.move_to_element(last_elem)
     actions.perform()
+    print("-----------------------------------スクロールしたよ!!")
+    time.sleep(0.5)
      
 
 def get_user_id(id_list):
-    # ここでスリープを入れないと読み込む前に検索してエラー出る
-    time.sleep(3) #読み込むまでを試したがダメだったのでtime.sleep推奨 必要だった。これがなくなるとforのinnerHTMLでエラーが出る
-
-    elems_article = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-    
-
-    for elem_article in elems_article:
+    global FINISH_3COUNT
+    #####################ほんとはここにやり直すチェックやスクロール可能ちぇくを入れるといいのかな
+    now_id_list = []
+    for elem_article in USER_ELEMS:
         html_text = elem_article.get_attribute('innerHTML')
 
 
         user_id = split_userID(html_text) #userIDはlist
     
         if not user_id: #空判定 なぜか空のlistが出来たため応急的
-            print("-----------------あれ、ユーザーIDが空だ!!")
+            # print("-----------------あれ、ユーザーIDが空だ!!")
             break
         
         else:
             if user_id[-1] not in id_list:
                 # twitter_id情報取得                   
-                id_list.append(user_id[-1])
+                now_id_list.append(user_id[-1])
                 # print(user_id)
     
-
+    if len(now_id_list) == 0: # もしid_listの値が増えていなければFINISH_3COUNTに1追加する
+        FINISH_3COUNT += 1
+    # old_id_list = id_list # 終了判定のために追加されているかを判別する　そのための追加前list
+    id_list.extend(now_id_list)
     return id_list #,tweet_list
 
 
@@ -236,53 +257,62 @@ def split_userID(html_text):
 
     return usreID
 
-# def split_reload_button():
-#     elems_article = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-#     html_text = elems_article[-1].get_attribute('innerHTML')
-#     p = r'class="(\w+)">'
-#     m = re.findall(p, html_text)
-#     print(m[-1])
-#     return m[-1]
 
-# もう読み込めない判定がされたのちに動作する関数　「やりなおす」のclassを返す
-def re_search_elements():
-    
-    # time.sleep(2)　←このまえの段階で10秒待機させてるけどほんとにいる？？？
+# もう読み込めない判定がされたのちに動作する関数　「やりなおす」のclassを返す ””””スクロール限界でやりなおすがあること前提で検索、無かったら最初から読み込み限界と断定する、ボタンのクラスを返す
+def check_elem_REsearch():
+    global USER_ELEMS , LOCK_ACCOUNT
+    class_name = ""
     # data-testid="cellInnerDiv"はある状態で発生してますか？
+    USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
     try:
-        elems_articles = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-        print("----------------------data-testid='cellInnerDiv'はあったよ!!")
-        html_text = elems_articles[-1].get_attribute('innerHTML')
+        html_text = USER_ELEMS[-1].get_attribute('innerHTML')
+        print(html_text)
+        if '">やりなおす</span>' in html_text:
+            print(html_text)
+            print("-----------------読み込み制限だ！！")
 
-        file_path = "firststep.text"
-        wfo = open(file_path, "w",encoding='UTF-8')
-        wfo.write(html_text)
+            p = r'class="(.*?)"'
+            m = re.findall(p, html_text)
+            class_name = m[4]
+
+            print(class_name)
+
+            print("---------------10秒待機するね!!")
+            time.sleep(10)
+            driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
+            print("------------「やりなおす」をクリックしたよ")
+
+            return False
         
-        p = r'class="(.*?)"'
-        m = re.findall(p, html_text)
-        class_name = m[4]
-    except:
+        else:
+            print("まだ続きがあるね")
+            
+            return True
+    
+    # except IndexError:
+    #     print("この人は鍵垢だったみたい…")
+    #     print("次の人に行くね!!")
+    #     LOCK_ACCOUNT = True
+    #     return False
+    
+    except Exception as e:
+        print("発生したエラーです---→  " + str(e))
         elems_article = driver.find_element(By.XPATH,".//main")
-        print("----------------------data-testid='cellInnerDiv'がない!!mainからさがすよ!!")
         html_text = elems_article.get_attribute('innerHTML')
         
-        file_path = "firststep.text"
-        wfo = open(file_path, "w",encoding='UTF-8')
-        wfo.write(html_text)
-        
-        wfo.close()
         p = r'class="(.*?)"'
         m = re.findall(p, html_text)
         class_name = m[-5]
+
+        print(class_name)
+
+        print("---------------10秒待機するね!!")
+        time.sleep(10)
+        driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
+        print("------------「やりなおす」をクリックしたよ")
+        
+        return False
     
-    print(class_name)
-    # driver.find_element(By.CLASS_NAME,a).click()
-    driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
-    print(class_name)
-    print("------------「やりなおす」をクリックしたよ")
-
-    
-    return class_name
 
 
 
@@ -290,85 +320,91 @@ def re_search_elements():
 
 
 
+
+
+
+
+def GET_FOLLOWS(csv_name,search_type):
+    global FINISH_3COUNT
+    # ファイルを開く
+    # file_name = "data\\" + target_csv_name + ".csv"
+    file_name = "data\\"+ csv_name + ".csv"
+    f = open(file_name, 'r')
+    id_list = csv.reader(f)
+    # print(id_list)
+    # print(type(id_list))
+
+    login_twitter()
+
+    print(id_list)
+
+    # global変数へ代入できるように
+    for id in id_list: # --------------------------------csvをreaderでlistにするとなんか変な形になって取り出しにくい！！！このタイミングでPickleを導入するぞ！！！
+        print(id[0])
+        # follow_count,follower_count = count_follow_id(TWITTER_ID)
+        count_follow_id(id[0])
+
+        FINISH_3COUNT = 0
+
+
+        if FOLLOWING_COUNT and FOLLOWER_COUNT:
+            # tweet情報をlist型で取得
+            id_list = get_tweet(id[0],search_type)
+
+            # ファイル名を決定
+            file_path = "data\\" + id[0] + ".csv"
+            # データフレームに変換
+            df = pd.DataFrame(id_list)
+            # csvとして保存
+            df.to_csv(file_path,mode='w',header=False, index=False)
+        
+        else:
+            continue
+
+    # ブラウザ停止
+    driver.quit()
 
 
 # def GET_FOLLOWS(target_csv_name,search_type):
 
-#     # ファイルを開く
-#     # file_name = "data\\" + target_csv_name + ".csv"
-#     file_name = "data\\"+ target_csv_name + ".csv"
-#     f = open(file_name, 'r')
-#     id_list = csv.reader(f)
-#     # print(id_list)
-#     # print(type(id_list))
+#     try:
+            
+#         # ファイルを開く
+#         # file_name = "data\\" + target_csv_name + ".csv"
+#         file_name = "data\\"+ target_csv_name + ".csv"
+#         f = open(file_name, 'r')
+#         id_list = csv.reader(f)
 
-#     login_twitter()
+#         login_twitter()
 
-#     # global変数へ代入できるように
-#     global TWITTER_ID
-#     for id in id_list:
-#         # print(id[0])
-#         TWITTER_ID = id[0]
-#         # follow_count,follower_count = count_follow_id(TWITTER_ID)
-#         count_follow_id(TWITTER_ID)
+#         # global変数へ代入できるように
+#         global TWITTER_ID
+#         for id in id_list:
+#             # print(id[0])
+#             TWITTER_ID = id[0]
+#             # follow_count,follower_count = count_follow_id(TWITTER_ID)
+#             count_follow_id(TWITTER_ID)
 
 
-#         if FOLLOWING_COUNT and FOLLOWER_COUNT:
-#             # tweet情報をlist型で取得
-#             id_list = get_tweet(TWITTER_ID,search_type)
+#             if FOLLOWING_COUNT and FOLLOWER_COUNT:
+#                 # tweet情報をlist型で取得
+#                 id_list = get_tweet(TWITTER_ID,search_type)
 
-#             # ファイル名を決定
-#             file_path = "data\\" + TWITTER_ID + ".csv"
-#             # データフレームに変換
-#             df = pd.DataFrame(id_list)
-#             # csvとして保存
-#             df.to_csv(file_path,mode='w',header=False, index=False)
-        
-#         else:
-#             continue
+#                 # ファイル名を決定
+#                 file_path = "data\\" + TWITTER_ID + ".csv"
+#                 # データフレームに変換
+#                 df = pd.DataFrame(id_list)
+#                 # csvとして保存
+#                 df.to_csv(file_path,mode='w',header=False, index=False)
+            
+#             else:
+#                 continue
 
+#     except Exception as e:
+#         print("エラーが出たのでやり直します")
+#         print("発生したエラーです---→  " + str(e))
 #     # ブラウザ停止
 #     driver.quit()
-def GET_FOLLOWS(target_csv_name,search_type):
-
-    try:
-            
-        # ファイルを開く
-        # file_name = "data\\" + target_csv_name + ".csv"
-        file_name = "data\\"+ target_csv_name + ".csv"
-        f = open(file_name, 'r')
-        id_list = csv.reader(f)
-
-        login_twitter()
-
-        # global変数へ代入できるように
-        global TWITTER_ID
-        for id in id_list:
-            # print(id[0])
-            TWITTER_ID = id[0]
-            # follow_count,follower_count = count_follow_id(TWITTER_ID)
-            count_follow_id(TWITTER_ID)
-
-
-            if FOLLOWING_COUNT and FOLLOWER_COUNT:
-                # tweet情報をlist型で取得
-                id_list = get_tweet(TWITTER_ID,search_type)
-
-                # ファイル名を決定
-                file_path = "data\\" + TWITTER_ID + ".csv"
-                # データフレームに変換
-                df = pd.DataFrame(id_list)
-                # csvとして保存
-                df.to_csv(file_path,mode='w',header=False, index=False)
-            
-            else:
-                continue
-
-    except Exception as e:
-        print("エラーが出たのでやり直します")
-        print("発生したエラーです---→  " + str(e))
-    # ブラウザ停止
-    driver.quit()
 
 
 
@@ -378,4 +414,6 @@ if __name__ == "__main__":
 
     csv_name = "test"
     search_type = "followers"
+
+
     GET_FOLLOWS(csv_name,search_type)
