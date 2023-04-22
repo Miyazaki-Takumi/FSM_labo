@@ -1,19 +1,16 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 import time
-import pandas as pd
 import re
 
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
-import csv
 from selenium.common.exceptions import NoSuchElementException
-# from selenium.webdriver.support.ui import WebDriverWait
-import pickle
+import os
+
+
 
 # -----global_variable-----
 SCROLL_COUNT = 100000000000000000
@@ -57,15 +54,15 @@ driver.implicitly_wait(3) # きちんと動作してる!!えらい!!
 
 def get_tweet(twitter_id,search_type):
 
-    global USER_ELEMS, SCROLL_COUNT
+    global USER_ELEMS, SCROLL_COUNT, FINISH_3COUNT
 
     SCROLL_COUNT = 100000000000000000
-
+    FINISH_3COUNT = 0
 
     # searchタイプの選択によってfollow_count,follower_countの選択を自動化させよう!!!　個々の引数にいらない。グローバル化させて利用するのを選択させよう　
     url = 'https://twitter.com/' + twitter_id +"/"+ search_type
 
-    id_list = []
+    id_list = set()
     time.sleep(0.5)
 
     driver.get(url)
@@ -95,7 +92,7 @@ def get_tweet(twitter_id,search_type):
     return id_list
 
 
-def count_follow_id(twitter_id):
+# def count_follow_id(twitter_id):
     # global変数へ代入できるように
     global FOLLOWING_COUNT,FOLLOWER_COUNT
 
@@ -114,15 +111,16 @@ def count_follow_id(twitter_id):
 
         # global変数へfollow_count,follower_countを代入
         FOLLOWING_COUNT,FOLLOWER_COUNT = translator(follow_count) ,translator(follower_count)
+        return True
 
     
     except NoSuchElementException:
         FOLLOWING_COUNT,FOLLOWER_COUNT = "" , ""
-    
+        return False
 
 
 #万や億などの表記を日本語に直す　1,000などを1000に直す
-def translator(target):
+# def translator(target):
     target = target.replace(',', '')
     replaceTable = str.maketrans({'億':'*100000000','万':'*10000'})
     text = str(target)
@@ -176,7 +174,8 @@ def scroll_to_elem():
 def get_user_id(id_list):
     global FINISH_3COUNT
 
-    now_id_list = []
+    now_id_list = set()
+    USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
     for elem_article in USER_ELEMS:
         html_text = elem_article.get_attribute('innerHTML')
 
@@ -190,13 +189,13 @@ def get_user_id(id_list):
         else:
             if user_id[-1] not in id_list:
                 # twitter_id情報取得                   
-                now_id_list.append(user_id[-1])
+                now_id_list.add(user_id[-1])
                 # print(user_id)
     
-    if len(now_id_list) == 0: # もしid_listの値が増えていなければFINISH_3COUNTに1追加する
+    if len(now_id_list) == 0: # もしid_listの値が増えていなければFINISH_3COUNTに1追加する 
         FINISH_3COUNT += 1
 
-    id_list.extend(now_id_list)
+    id_list = id_list.union(now_id_list)
     return id_list
 
 
@@ -229,8 +228,9 @@ def check_elem_REsearch():
             print(class_name)
 
             print("---------------10秒待機するね!!")
-            time.sleep(10)
+            # time.sleep(10)
             driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
+            time.sleep(10)
             print("------------「やりなおす」をクリックしたよ")
 
             return False
@@ -240,9 +240,8 @@ def check_elem_REsearch():
             
             return True
     
-    
-    except Exception as e:
-        print("発生したエラーです---→  " + str(e))
+    except IndentationError:
+        print("要素がない読み込み制限だ！")
         elems_article = driver.find_element(By.XPATH,".//main")
         html_text = elems_article.get_attribute('innerHTML')
         
@@ -253,11 +252,17 @@ def check_elem_REsearch():
         print(class_name)
 
         print("---------------10秒待機するね!!")
-        time.sleep(10)
         driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
+        time.sleep(10)
         print("------------「やりなおす」をクリックしたよ")
-        
         return False
+    
+    except Exception as e:
+        print("発生したエラーです---→  " + str(e))
+        print("------------恐らく発生したのは「stale element reference: element is not attached to the page document」 何が原因で発生してるのか分からない。直前にdriver.find_elementsも読み込んでいるから移動によるデータの消失じゃないし、プリントしているhtml_textでは「やりなおす」が確認できてるからここのexceptに飛ぶはずないんだけど…??? ")
+
+        exit
+
     
 
 
@@ -270,42 +275,41 @@ def check_elem_REsearch():
 
 
 # ↓のGET_FOLLOWSを for(∞) と try except で囲む、まだ囲んでないから
-def GET_FOLLOWS(csv_name,search_type):
+def GET_FOLLOWS(file_name,search_type):
 
 #     try:
 
-    global FINISH_3COUNT
     # ファイルを開く
-    file_name = "data\\"+ csv_name + ".csv"
-    f = open(file_name, 'r')
-    id_list = csv.reader(f)
+    file_name_in = f"data\\{search_type}\\{file_name}.txt"
+    f = open(file_name_in, 'r')
+    id_set = set([s.rstrip() for s in f.readlines()])
+
+    folder_list = os.listdir(f"data\\{search_type}")
 
     login_twitter()
 
-    print(id_list)
+    print(id_set)
 
     # global変数へ代入できるように
-    for id in id_list: # --------------------------------csvをreaderでlistにするとなんか変な形になって取り出しにくい！！！このタイミングでPickleを導入するぞ！！！
-        print(id[0])
+    for id in id_set: # --------------------------------csvをreaderでlistにするとなんか変な形になって取り出しにくい！！！このタイミングでPickleを導入するぞ！！！
+        print(id)
 
-        count_follow_id(id[0])
-
-        FINISH_3COUNT = 0
-
-
-        if FOLLOWING_COUNT and FOLLOWER_COUNT:
-            # tweet情報をlist型で取得
-            id_list = get_tweet(id[0],search_type)
-
-            # ファイル名を決定
-            file_path = "data\\" + id[0] + ".csv"
-            # データフレームに変換
-            df = pd.DataFrame(id_list)
-            # csvとして保存
-            df.to_csv(file_path,mode='w',header=False, index=False)
-        
-        else:
+        # もうすでに調べてるか判定
+        if f"{id}.txt" in folder_list:
+            print("↑このユーザーはすでにファイルが存在するね")
             continue
+
+        # tweet情報をlist型で取得
+        get_id_set = get_tweet(id,search_type)
+
+
+        # ファイル名を決定
+        file_path_ex = f"data\\{search_type}\\{id}.txt"
+        wfo = open(file_path_ex, "w")
+        for follow_name in get_id_set: wfo.write(f"{follow_name}\n")
+        wfo.close()
+        
+
 
 #     except Exception as e:
 #         print("エラーが出たのでやり直します")
@@ -320,10 +324,10 @@ def GET_FOLLOWS(csv_name,search_type):
 
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     csv_name = "test"
-#     search_type = "followers"
+    file_name = "test"
+    search_type = "followers"
 
 
-#     GET_FOLLOWS(csv_name,search_type)
+    GET_FOLLOWS(file_name,search_type)
