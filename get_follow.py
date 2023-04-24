@@ -21,6 +21,7 @@ FOLLOWING_COUNT ,FOLLOWER_COUNT = 0,0
 USER_ELEMS = []
 FINISH_3COUNT = 0
 LOCK_ACCOUNT = False
+ERROR_NOT_HAPPEND = False
 # -------------------------
 
 
@@ -78,8 +79,7 @@ def get_tweet(twitter_id,search_type):
         # 「やりなおす」はあるか？同時にUSERS_ELEMSへ要素を代入
         if check_elem_REsearch():
 
-            USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-            
+
             id_list = get_user_id(id_list)
             print(len(id_list))
 
@@ -176,8 +176,9 @@ def get_user_id(id_list):
 
     now_id_list = set()
     USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-    for elem_article in USER_ELEMS:
-        html_text = elem_article.get_attribute('innerHTML')
+    for i in range(len(USER_ELEMS)):
+        USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+        html_text = USER_ELEMS[i].get_attribute('innerHTML')
 
 
         user_id = split_userID(html_text) #userIDはlist
@@ -210,7 +211,7 @@ def split_userID(html_text):
 
 # id_listの検索が始まる前に「userは表示されているか」「「やりなおす」ボタンは表示されているか」「一番下まで読み込んだか」をcheckする
 def check_elem_REsearch():
-    global USER_ELEMS , LOCK_ACCOUNT
+    global USER_ELEMS , LOCK_ACCOUNT, ERROR_NOT_HAPPEND
     class_name = ""
     # data-testid="cellInnerDiv"はある状態で発生してますか？
     USER_ELEMS = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
@@ -240,7 +241,7 @@ def check_elem_REsearch():
             
             return True
     
-    except IndentationError:
+    except IndexError:
         print("要素がない読み込み制限だ！")
         elems_article = driver.find_element(By.XPATH,".//main")
         html_text = elems_article.get_attribute('innerHTML')
@@ -258,9 +259,9 @@ def check_elem_REsearch():
         return False
     
     except Exception as e:
-        print("発生したエラーです---→  " + str(e))
-        print("------------恐らく発生したのは「stale element reference: element is not attached to the page document」 何が原因で発生してるのか分からない。直前にdriver.find_elementsも読み込んでいるから移動によるデータの消失じゃないし、プリントしているhtml_textでは「やりなおす」が確認できてるからここのexceptに飛ぶはずないんだけど…??? ")
+        print("発生したエラーです---→  " + str(e)) #------------恐らく発生したのは「stale element reference: element is not attached to the page document」 何が原因で発生してるのか分からない。直前にdriver.find_elementsも読み込んでいるから移動によるデータの消失じゃないし、プリントしているhtml_textでは「やりなおす」が確認できてるからここのexceptに飛ぶはずないんだけど…???
 
+        ERROR_NOT_HAPPEND = False
         exit
 
     
@@ -278,9 +279,9 @@ def check_elem_REsearch():
 def GET_FOLLOWS(file_name,search_type):
 
 #     try:
-
+    global ERROR_NOT_HAPPEND
     # ファイルを開く
-    file_name_in = f"data\\{search_type}\\{file_name}.txt"
+    file_name_in = f"data\\{file_name}.txt"
     f = open(file_name_in, 'r')
     id_set = set([s.rstrip() for s in f.readlines()])
 
@@ -318,6 +319,7 @@ def GET_FOLLOWS(file_name,search_type):
 #     driver.quit()
 
     # ブラウザ停止
+    ERROR_NOT_HAPPEND = True
     driver.quit()
 
 
@@ -326,8 +328,8 @@ def GET_FOLLOWS(file_name,search_type):
 
 if __name__ == "__main__":
 
-    file_name = "test"
-    search_type = "followers"
-
-
-    GET_FOLLOWS(file_name,search_type)
+    file_name = "tut_tweet"
+    search_type = "following"
+    print(ERROR_NOT_HAPPEND)
+    while not ERROR_NOT_HAPPEND:
+        GET_FOLLOWS(file_name,search_type)
