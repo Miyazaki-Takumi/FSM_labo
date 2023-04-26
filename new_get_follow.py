@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import re
-
+from selenium.common.exceptions import StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import NoSuchElementException
@@ -16,12 +16,13 @@ import os
 SCROLL_COUNT = 100000000000000000
 
 SCROLL_WAIT_TIME = 1
-ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
+# ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 FOLLOWING_COUNT ,FOLLOWER_COUNT = 0,0
 USER_ELEMS = []
 FINISH_3COUNT = 0
 LOCK_ACCOUNT = False
 ERROR_NOT_HAPPEND = False
+LONELY_MAN = False
 # -------------------------
 
 # -----headers-------------
@@ -66,7 +67,7 @@ def split_target_id(html):
 
 
 def click_retry():
-
+    global LONELY_MAN
     try:
         # 通常の読み込み限界
         html = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")[-1].get_attribute('innerHTML')
@@ -78,8 +79,15 @@ def click_retry():
             print("click")
             return True
         
+        # elif not driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']"):
+
+        
         else:
             return False
+    
+    # 不意に発生するエラー　画面が描画される前にクリックすることで発生するらしいのでリトライさせる
+    except StaleElementReferenceException:
+        return True
 
     except IndexError:
         # 最初から読み込み限界
@@ -91,6 +99,11 @@ def click_retry():
             driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
             print("click")
             return True
+        
+        elif not driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']"):
+            LONELY_MAN = True
+            return False
+
     # その他のエラーが起こった場合はここを通る       
     # except Exception:
     # 最終的にすべての処理はここを通る
@@ -150,18 +163,23 @@ def login_twitter():
 
 file_name = "tut_tweet"
 search_type = "followers"
+ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 
 id_set = read_file(file_name,search_type)
 
 login_twitter()
 
 for id in id_set:
+#----------------------------------------------------------------------------すでに調べたtxtを再捜索して更新する----囲われた部分は変更したところ
     # もうしらべたIDか？
     if id in os.listdir(f"data\{search_type}"):
+        # print("This is Known Users")
         continue
-
+#--------------------------------------------------------------------------------
     target_id_set = set()
-    target_id_set_sub = set()
+    target_id_set_last = set()
+    target_id_set_add = set()
+    target_id_set_add_last = set()
     scroll_limit_count = 0
     target_url = f"https://twitter.com/{id}/{search_type}"
     
@@ -172,26 +190,30 @@ for id in id_set:
     if driver.current_url == f"https://twitter.com/{id}":
         write_file(id,search_type,target_id_set,"_lock")
         continue
-    target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+    
+    # 収集する前にファイルを作成しておく
+    write_file(id,search_type,target_id_set)
 
-    # フォロワーが0人だった場合
-    if not target_user_elems:
-        write_file(id,search_type,target_id_set)
-        continue
+    target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
     for i in range(1000000000000000000000000000):
         # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
         target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
         
-            # 読み込み限界か?
+        # 読み込み限界か?
         while click_retry():
             time.sleep(60)
-            
-        for i in range(len(target_user_elems)):
+
+        # フォロワーが0人ならbreak
+        if LONELY_MAN:
+            LONELY_MAN = False
+            break
+        
+        for l in range(len(target_user_elems)):
             # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
             target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
-            html = target_user_elems[i].get_attribute('innerHTML')
+            html = target_user_elems[l].get_attribute('innerHTML')
             
             # HTMLtxtからユーザIＤを切り抜き
             target_id = split_target_id(html)
@@ -206,19 +228,31 @@ for id in id_set:
             if not target_id:
                 continue
             
-            # 集合user_idとUSER_IDは重複ないか
+            # # 集合user_idとUSER_IDは重複ないか
+            # if target_id[-1] not in target_id_set:
+            #     print(target_id[-1])
+            #     target_id_set.add(target_id[-1])
+            #     target_id_set_add.add(target_id[-1])
+
             if target_id[-1] not in target_id_set:
-                print(target_id)
+                print(target_id[-1])
                 target_id_set.add(target_id[-1])
-            
+                target_id_set_add.add(target_id[-1])
+
         # for i range(len(target_user_elems))が正常に完了したら下のcontinueが実行される
         else:
             
-            # 終わりの空白の判定が上手く動作しないため　「追加したユーザが0だった場合が5回以上続けば」をifにandした
-            if target_id_set == target_id_set_sub:
+            # 終わりの空白の判定が上手く動作しないため　「追加したユーザが前回と同じだった場合が5回以上続けば」で判別
+            if target_id_set_add == target_id_set_add_last:
                 scroll_limit_count +=1
-            target_id_set_sub = target_id_set_sub.union(target_id_set)
-            
+            target_id_set_add_last = target_id_set_add
+            target_id_set_add = set()
+
+            # target_id_set # 収集した全体の集合
+            # target_id_set_last # 前回のscroll時点で収集した全体の集合
+            # target_id_set.difference(target_id_set_last) # 今回のscrollで追加した集合
+            # target_id_set_add_last = target_id_set.difference(target_id_set_last) # 前回のscrollで追加した集合
+
             # ページがスクロールされて読み込めるtarget_user_elemsが増えます
             scroll_to_elem()
             continue
