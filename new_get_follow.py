@@ -16,7 +16,7 @@ import os
 SCROLL_COUNT = 100000000000000000
 
 SCROLL_WAIT_TIME = 1
-# ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
+ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 FOLLOWING_COUNT ,FOLLOWER_COUNT = 0,0
 USER_ELEMS = []
 FINISH_3COUNT = 0
@@ -31,11 +31,13 @@ headers = {
     } # ヘッダーとは何なのかわからん？？？
 # -------------------------
 
-# -------chromeドライバーのダウンロード------------------
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-#　ヘッドレスモードでブラウザを起動
+#　-------ヘッドレスモードでブラウザを起動-------
 options = Options()
 options.add_argument('--headless')
+# -------------------------------------------
+
+# -------chromeドライバーのダウンロード------------------
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 # -------------------------
 
 # ---------暗黙的待機時間(find_elementすべてに要素が見つかるまで待機させる)----------------
@@ -161,109 +163,111 @@ def login_twitter():
 
 # ---------実行プログラム----------------
 
-file_name = "tut_tweet"
-search_type = "followers"
-ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
+# file_name = "tut_tweet"
+# search_type = "followers"
+# ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 
-id_set = read_file(file_name,search_type)
+def GET_FOLLOWS(file_name,search_type,acount_id,acount_pass):
+    global ACOUNT_ID,ACOUNT_PASS,LONELY_MAN
+    ACOUNT_ID,ACOUNT_PASS = acount_id,acount_pass
+    id_set = read_file(file_name,search_type)
 
-login_twitter()
+    login_twitter()
 
-for id in id_set:
-#----------------------------------------------------------------------------すでに調べたtxtを再捜索して更新する----囲われた部分は変更したところ
-    # もうしらべたIDか？
-    if id in os.listdir(f"data\{search_type}"):
-        # print("This is Known Users")
-        continue
-#--------------------------------------------------------------------------------
-    target_id_set = set()
-    target_id_set_last = set()
-    target_id_set_add = set()
-    target_id_set_add_last = set()
-    scroll_limit_count = 0
-    target_url = f"https://twitter.com/{id}/{search_type}"
-    
-    # target_urlへアクセス
-    driver.get(target_url)
-    time.sleep(0.8)
-    # target_urlは鍵垢か？
-    if driver.current_url == f"https://twitter.com/{id}":
-        write_file(id,search_type,target_id_set,"_lock")
-        continue
-    
-    # 収集する前にファイルを作成しておく
-    write_file(id,search_type,target_id_set)
+    for id in id_set:
+    #----------------------------------------------------------------------------すでに調べたtxtを再捜索して更新する----囲われた部分は変更したところ
+        # もうしらべたIDか？
+        if id in set(os.listdir(f"data\{search_type}")):
+            # print("This is Known Users")
+            continue
+    #--------------------------------------------------------------------------------
+        target_id_set = set()
+        target_id_set_last = set()
+        target_id_set_add = set()
+        target_id_set_add_last = set()
+        scroll_limit_count = 0
+        target_url = f"https://twitter.com/{id}/{search_type}"
+        
+        # target_urlへアクセス
+        driver.get(target_url)
+        # ↓で↑のcodeを新しいタブで開くようにできる。同時実行に(タブを指定して制御しなきゃいけないの？)
+        # driver.execute_script(f"window.open('{target_url}');")
+        time.sleep(0.8)
+        # target_urlは鍵垢か？
+        if driver.current_url == f"https://twitter.com/{id}":
+            write_file(id,search_type,target_id_set,"_lock")
+            continue
 
-    target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-
-    for i in range(1000000000000000000000000000):
-        # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
         target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-        
-        # 読み込み限界か?
-        while click_retry():
-            time.sleep(60)
 
-        # フォロワーが0人ならbreak
-        if LONELY_MAN:
-            LONELY_MAN = False
-            break
-        
-        for l in range(len(target_user_elems)):
+        for i in range(1000000000000000000000000000):
             # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
             target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-
-            html = target_user_elems[l].get_attribute('innerHTML')
             
-            # HTMLtxtからユーザIＤを切り抜き
-            target_id = split_target_id(html)
+            # 読み込み限界か?
+            while click_retry():
+                time.sleep(60)
 
-            # 終わりの空白なら
-            if html.count("css-1dbjc4n r-o52ifk") == 2 and scroll_limit_count >= 5:
-                print("-------------読み込み限界みたい")
+            # フォロワーが0人ならbreak
+            if LONELY_MAN:
+                LONELY_MAN = False
                 break
             
+            for l in range(len(target_user_elems)):
+                # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
+                target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
-            # 空判定 なぜか空のlistが出来た時があったため応急的
-            if not target_id:
+                html = target_user_elems[l].get_attribute('innerHTML')
+                
+                # HTMLtxtからユーザIＤを切り抜き
+                target_id = split_target_id(html)
+
+                # 終わりの空白なら
+                if html.count("css-1dbjc4n r-o52ifk") == 2 and scroll_limit_count >= 5:
+                    print("-------------読み込み限界みたい")
+                    break
+                
+
+                # 空判定 なぜか空のlistが出来た時があったため応急的
+                if not target_id:
+                    continue
+                
+                # # 集合user_idとUSER_IDは重複ないか
+                # if target_id[-1] not in target_id_set:
+                #     print(target_id[-1])
+                #     target_id_set.add(target_id[-1])
+                #     target_id_set_add.add(target_id[-1])
+
+                if target_id[-1] not in target_id_set:
+                    print(target_id[-1])
+                    target_id_set.add(target_id[-1])
+                    target_id_set_add.add(target_id[-1])
+
+            # for i range(len(target_user_elems))が正常に完了したら下のcontinueが実行される
+            else:
+                
+                # 終わりの空白の判定が上手く動作しないため　「追加したユーザが前回と同じだった場合が5回以上続けば」で判別
+                if target_id_set_add == target_id_set_add_last:
+                    scroll_limit_count +=1
+                target_id_set_add_last = target_id_set_add
+                target_id_set_add = set()
+
+                # target_id_set # 収集した全体の集合
+                # target_id_set_last # 前回のscroll時点で収集した全体の集合
+                # target_id_set.difference(target_id_set_last) # 今回のscrollで追加した集合
+                # target_id_set_add_last = target_id_set.difference(target_id_set_last) # 前回のscrollで追加した集合
+
+                # ページがスクロールされて読み込めるtarget_user_elemsが増えます
+                scroll_to_elem()
                 continue
             
-            # # 集合user_idとUSER_IDは重複ないか
-            # if target_id[-1] not in target_id_set:
-            #     print(target_id[-1])
-            #     target_id_set.add(target_id[-1])
-            #     target_id_set_add.add(target_id[-1])
+            # for i range(len(target_user_elems))が異常(※読み取り限界)に完了したら下のbrakeが実行される
+            break
 
-            if target_id[-1] not in target_id_set:
-                print(target_id[-1])
-                target_id_set.add(target_id[-1])
-                target_id_set_add.add(target_id[-1])
-
-        # for i range(len(target_user_elems))が正常に完了したら下のcontinueが実行される
+        # for id in id_set:が正常に完了したら下のcontinueが実行される
         else:
-            
-            # 終わりの空白の判定が上手く動作しないため　「追加したユーザが前回と同じだった場合が5回以上続けば」で判別
-            if target_id_set_add == target_id_set_add_last:
-                scroll_limit_count +=1
-            target_id_set_add_last = target_id_set_add
-            target_id_set_add = set()
-
-            # target_id_set # 収集した全体の集合
-            # target_id_set_last # 前回のscroll時点で収集した全体の集合
-            # target_id_set.difference(target_id_set_last) # 今回のscrollで追加した集合
-            # target_id_set_add_last = target_id_set.difference(target_id_set_last) # 前回のscrollで追加した集合
-
-            # ページがスクロールされて読み込めるtarget_user_elemsが増えます
-            scroll_to_elem()
             continue
         
-        # for i range(len(target_user_elems))が異常(※読み取り限界)に完了したら下のbrakeが実行される
-        break
-
-    # for id in id_set:が正常に完了したら下のcontinueが実行される
-    else:
-        continue
-    
-    write_file(id,search_type,target_id_set)
-    # for id in id_setが異常(※すべて読み込んだ)に完了したら下のbrakeが実行される
-driver.quit()
+        write_file(id,search_type,target_id_set)
+        # for id in id_setが異常(※すべて読み込んだ)に完了したら下のbrakeが実行される
+    driver.quit()
