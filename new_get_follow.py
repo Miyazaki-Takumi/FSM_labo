@@ -34,11 +34,12 @@ headers = {
 #　-------ヘッドレスモードでブラウザを起動-------
 options = Options()
 options.add_argument('--headless')
+# ↓WEBページ自体がクラッシュするのを防ぐらしい
+options.add_argument('--disable-features=RendererCodeIntegrity')
 # -------------------------------------------
 
 # -------chromeドライバーのダウンロード------------------
-# driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 # -------------------------
 
 # ---------暗黙的待機時間(find_elementすべてに要素が見つかるまで待機させる)----------------
@@ -126,10 +127,10 @@ def click_retry():
 
 def scroll_to_elem():
 
-    # 最後の要素の一つ前までスクロール
+    # 最後の要素の一つ前までスクロール  
     target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
-    last_elem = target_user_elems[-2]
+    last_elem = target_user_elems[-1]
 
     actions = ActionChains(driver)
     actions.move_to_element(last_elem)
@@ -188,6 +189,7 @@ def login_twitter(acount_id,acount_pass):
 
 #ファイルを指定する形から　id を指定する形へ変更する
 def GET_FOLLOWS(id,search_type):
+    global LONELY_MAN
     target_id_set = set()
     target_id_set_add = set()
     target_id_set_add_last = set()
@@ -265,7 +267,7 @@ def GET_FOLLOWS(id,search_type):
         break
 
 
-    write_file(f"data2\\{search_type}\\{id}",target_id_set)
+    write_file(f"data2\\{search_type}\\{id}.txt",target_id_set)
     # driver.quit()はなくても閉じる
     return
 
@@ -273,15 +275,13 @@ def GET_FOLLOWS(id,search_type):
 
 
 
-# ---------test実行文----------------
+# # ---------test実行文----------------
+# acount_id,acount_pass = "RnPuseF77mJZpVO","twitternopas1"
+# login_twitter(acount_id,acount_pass)
 
-# id = "HNgom4e.txt"
-# while(True):
-#     try:
-#         GET_FOLLOWS(id,"followers","RnPuseF77mJZpVO","twitternopas1")
-#         break
-#     except NoSuchElementException:
-#         continue
-# css-901oao r-18jsvk2 r-37j5jr r-a023e6 r-16dba41 r-rjixqe r-bcqeeo r-1h8ys4a r-1jeg54m r-qvutc0
+# id = "aaaaatan0531.txt"
+# GET_FOLLOWS(id,"followers")
+# # css-901oao r-18jsvk2 r-37j5jr r-a023e6 r-16dba41 r-rjixqe r-bcqeeo r-1h8ys4a r-1jeg54m r-qvutc0
 
-# ---------------------------------
+# # ---------------------------------
+
