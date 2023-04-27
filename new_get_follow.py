@@ -16,7 +16,7 @@ import os
 SCROLL_COUNT = 100000000000000000
 
 SCROLL_WAIT_TIME = 1
-ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
+# ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 FOLLOWING_COUNT ,FOLLOWER_COUNT = 0,0
 USER_ELEMS = []
 FINISH_3COUNT = 0
@@ -37,7 +37,8 @@ options.add_argument('--headless')
 # -------------------------------------------
 
 # -------chromeドライバーのダウンロード------------------
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
+# driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 # -------------------------
 
 # ---------暗黙的待機時間(find_elementすべてに要素が見つかるまで待機させる)----------------
@@ -50,22 +51,34 @@ driver.implicitly_wait(3) # きちんと動作してる!!えらい!!
 # ---------愛すべき関数たち----------------
 
 # fileから読み込んだユーザのリストを集合の形で返す
-def read_file(file_name,search_type):
-    file = f"data\\{search_type}\\{file_name}.txt"
-    f = open(file, 'r')
+def read_file(file_path):
+    # file = f"data\\{search_type}\\{file_name}.txt"
+    f = open(file_path, 'r')
     id_set = set([s.rstrip() for s in f.readlines()])
 
 
     return id_set
 
 
-def split_target_id(html):
-    # 特定の文字列を切り出したい。(ユーザーID)　@0000では複数あるので「>@　~userID~　<」までを指定して切り出したい   ex) r-qvutc0">@shunno0529</span></div></div></a></div>    
-    p = r'>@(\w+)</span>'
-    m = re.findall(p, html)
-    usreID = m
+# def split_target_id(html):
+#     # 特定の文字列を切り出したい。(ユーザーID)　@0000では複数あるので「>@　~userID~　<」までを指定して切り出したい   ex) r-qvutc0">@shunno0529</span></div></div></a></div>    
+#     p = r'>@(\w+)</span>'
+#     m = re.findall(p, html)
+#     usreID = m
 
-    return usreID
+#     return usreID
+
+def get_WebElement_text(text_list):
+    if len(text_list) >= 4:
+        target_id,introduce = text_list[1],text_list[3]
+    elif len(text_list) >= 3:
+        target_id,introduce = text_list[1],""
+    elif len(text_list) >= 2:
+        target_id,introduce = text_list[0],""
+    else:
+        target_id,introduce = "",""
+
+    return target_id.replace("@",""),introduce.replace("\n","")
 
 
 def click_retry():
@@ -125,21 +138,21 @@ def scroll_to_elem():
     time.sleep(0.5)
 
 
-def write_file(file_name,search_type,target_id_set,lock=""):
-    file = f"data\\{search_type}\\{file_name}{lock}.txt"
-    f = open(file, 'w')
+def write_file(file_path,target_id_set):
+    # file = f"data2\\{search_type}\\{file_name}{lock}.txt"
+    f = open(file_path, 'w', encoding="utf-8")
     for follow_name in target_id_set: f.write(f"{follow_name}\n")
     f.close()
 
 
-def login_twitter():
+def login_twitter(acount_id,acount_pass):
     # ログインページを開く
     time.sleep(2) #重要なのはこっちか??　下のgetする前にdriver=chromeをしてるけどその読み込みが終わってないのにgetしてるからエラーが出てるかも知れない
     driver.get("https://twitter.com/i/flow/login")
     
     # account入力    
     element_account = driver.find_element(By.NAME,"text")
-    element_account.send_keys(ACOUNT_ID)
+    element_account.send_keys(acount_id)
     time.sleep(1.5) #←無くても動くのでは？？？ 
     # 次へボタンのXPathがこれでしか取れなかった・・・
     # 次へボタンクリック
@@ -149,7 +162,7 @@ def login_twitter():
 
     # パスワード入力
     element_pass = driver.find_element(By.NAME,"password")
-    element_pass.send_keys(ACOUNT_PASS)
+    element_pass.send_keys(acount_pass)
     #time.sleep(1.5) #←無くても動くのでは？ 
     # ログインボタンクリック
     element_login = driver.find_element(By.XPATH,'//*[@data-testid="LoginForm_Login_Button"]')
@@ -159,115 +172,116 @@ def login_twitter():
 
 # -------------------------
 
+# ---------めいめいのきそく----------------
+# dataの中にある各ファイルをid_file(file_name.txt)
+# id_fileの中にあるidをid(id.txt)
+# 
+# ---------めいめいのきそく(GET_FOLLOWS内の場合)----------------
+# target_id_set はこれから収集するidのset(集合)　出力用
+# target_id_set_add　は今回のスクロールで収集したtarget_id_set　比較用に存在する
+# target_id_set_add_last　は前回のスクロールで収集したtarget_id_set　比較用に存在する　(target_id_set_addから情報を貰っている)
+# scroll_limit_count　はtarget_id_set_addとtarget_id_set_add_lastが等しいときに追加される　判定用
 
 
-# ---------実行プログラム----------------
+# ---------main関数----------------
 
-# file_name = "tut_tweet"
-# search_type = "followers"
-# ACOUNT_ID , ACOUNT_PASS = "RnPuseF77mJZpVO","twitternopas1"
 
-def GET_FOLLOWS(file_name,search_type,acount_id,acount_pass):
-    global ACOUNT_ID,ACOUNT_PASS,LONELY_MAN
-    ACOUNT_ID,ACOUNT_PASS = acount_id,acount_pass
-    id_set = read_file(file_name,search_type)
+#ファイルを指定する形から　id を指定する形へ変更する
+def GET_FOLLOWS(id,search_type):
+    target_id_set = set()
+    target_id_set_add = set()
+    target_id_set_add_last = set()
+    scroll_limit_count = 0
+    id = id.replace(".txt","")
+    target_url = f"https://twitter.com/{id}/{search_type}"
 
-    login_twitter()
+    # もうしらべたIDか？
+    if id+".txt" in set(os.listdir(f"data2\{search_type}")):
+        print("This is Known Users")
+        return
+    
+    # target_urlへアクセス
+    driver.get(target_url)
+    time.sleep(0.8)
 
-    for id in id_set:
-    #----------------------------------------------------------------------------すでに調べたtxtを再捜索して更新する----囲われた部分は変更したところ
-        # もうしらべたIDか？
-        if id in set(os.listdir(f"data\{search_type}")):
-            # print("This is Known Users")
-            continue
-    #--------------------------------------------------------------------------------
-        target_id_set = set()
-        target_id_set_last = set()
-        target_id_set_add = set()
-        target_id_set_add_last = set()
-        scroll_limit_count = 0
-        target_url = f"https://twitter.com/{id}/{search_type}"
-        
-        # target_urlへアクセス
-        driver.get(target_url)
-        # ↓で↑のcodeを新しいタブで開くようにできる。同時実行に(タブを指定して制御しなきゃいけないの？)
-        # driver.execute_script(f"window.open('{target_url}');")
-        time.sleep(0.8)
-        # target_urlは鍵垢か？
-        if driver.current_url == f"https://twitter.com/{id}":
-            write_file(id,search_type,target_id_set,"_lock")
-            continue
+    # target_urlは鍵垢か？
+    if driver.current_url == f"https://twitter.com/{id}":
+        write_file(f"data2\\{search_type}\\{id}_lock.txt",target_id_set)
+        return
 
+    target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+
+    for i in range(1000000000000000000000000000):
+        # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
         target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
+        
+        # 読み込み限界か?
+        while click_retry():
+            time.sleep(60)
 
-        for i in range(1000000000000000000000000000):
+        # フォロワーが0人ならbreak
+        if LONELY_MAN:
+            LONELY_MAN = False
+            break
+        
+        for l in range(len(target_user_elems)):
             # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
             target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
-            
-            # 読み込み限界か?
-            while click_retry():
-                time.sleep(60)
 
-            # フォロワーが0人ならbreak
-            if LONELY_MAN:
-                LONELY_MAN = False
+            html = target_user_elems[l].get_attribute('innerHTML')
+            print(target_user_elems[l].text.split("\n"))
+            target_id,introduce = get_WebElement_text(target_user_elems[l].text.split("\n"))
+
+
+            # 終わりの空白なら
+            if html.count("css-1dbjc4n r-o52ifk") == 2 and scroll_limit_count >= 5:
+                print("-------------読み込み限界みたい")
                 break
             
-            for l in range(len(target_user_elems)):
-                # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
-                target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
-                html = target_user_elems[l].get_attribute('innerHTML')
-                
-                # HTMLtxtからユーザIＤを切り抜き
-                target_id = split_target_id(html)
-
-                # 終わりの空白なら
-                if html.count("css-1dbjc4n r-o52ifk") == 2 and scroll_limit_count >= 5:
-                    print("-------------読み込み限界みたい")
-                    break
-                
-
-                # 空判定 なぜか空のlistが出来た時があったため応急的
-                if not target_id:
-                    continue
-                
-                # # 集合user_idとUSER_IDは重複ないか
-                # if target_id[-1] not in target_id_set:
-                #     print(target_id[-1])
-                #     target_id_set.add(target_id[-1])
-                #     target_id_set_add.add(target_id[-1])
-
-                if target_id[-1] not in target_id_set:
-                    print(target_id[-1])
-                    target_id_set.add(target_id[-1])
-                    target_id_set_add.add(target_id[-1])
-
-            # for i range(len(target_user_elems))が正常に完了したら下のcontinueが実行される
-            else:
-                
-                # 終わりの空白の判定が上手く動作しないため　「追加したユーザが前回と同じだった場合が5回以上続けば」で判別
-                if target_id_set_add == target_id_set_add_last:
-                    scroll_limit_count +=1
-                target_id_set_add_last = target_id_set_add
-                target_id_set_add = set()
-
-                # target_id_set # 収集した全体の集合
-                # target_id_set_last # 前回のscroll時点で収集した全体の集合
-                # target_id_set.difference(target_id_set_last) # 今回のscrollで追加した集合
-                # target_id_set_add_last = target_id_set.difference(target_id_set_last) # 前回のscrollで追加した集合
-
-                # ページがスクロールされて読み込めるtarget_user_elemsが増えます
-                scroll_to_elem()
+            # 空判定 なぜか空のlistが出来た時があったため応急的
+            if not target_id:
                 continue
             
-            # for i range(len(target_user_elems))が異常(※読み取り限界)に完了したら下のbrakeが実行される
-            break
+            # target_id_setへ未知のtarget_idを追加する
+            print(target_id)
+            target_id_set.add(target_id + "\t" + introduce)
+            target_id_set_add.add(target_id + "\t" + introduce)
 
-        # for id in id_set:が正常に完了したら下のcontinueが実行される
+        # for i range(len(target_user_elems))が正常に完了したら下のelseが実行される
         else:
+            
+            # 終わりの空白の判定が上手く動作しないため　「追加したユーザが前回と同じだった場合が5回以上続けば」で判別
+            if target_id_set_add == target_id_set_add_last:
+                scroll_limit_count +=1
+            target_id_set_add_last = target_id_set_add
+            target_id_set_add = set()
+
+            # ページがスクロールされて読み込めるtarget_user_elemsが増えます
+            scroll_to_elem()
             continue
         
-        write_file(id,search_type,target_id_set)
-        # for id in id_setが異常(※すべて読み込んだ)に完了したら下のbrakeが実行される
-    driver.quit()
+        # for i range(len(target_user_elems))が異常(※読み取り限界)に完了したら下のbrakeが実行される
+        break
+
+
+    write_file(f"data2\\{search_type}\\{id}",target_id_set)
+    # driver.quit()はなくても閉じる
+    return
+
+
+
+
+
+# ---------test実行文----------------
+
+# id = "HNgom4e.txt"
+# while(True):
+#     try:
+#         GET_FOLLOWS(id,"followers","RnPuseF77mJZpVO","twitternopas1")
+#         break
+#     except NoSuchElementException:
+#         continue
+# css-901oao r-18jsvk2 r-37j5jr r-a023e6 r-16dba41 r-rjixqe r-bcqeeo r-1h8ys4a r-1jeg54m r-qvutc0
+
+# ---------------------------------
