@@ -29,6 +29,9 @@ import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import chromedriver_binary
+import uuid
+import sys
+import time
 
 
 
@@ -55,6 +58,7 @@ driver = webdriver.Chrome(options=options)
 
 # ---------暗黙的待機時間(find_elementすべてに要素が見つかるまで待機させる)----------------
 driver.implicitly_wait(3) # きちんと動作してる!!えらい!!
+driver.set_page_load_timeout(30)
 # -------------------------
 
 
@@ -74,19 +78,27 @@ def GET_FOLLOWS(id,search_type,all_search=False):
     # login_twitter.login_twitter(driver,acount_id,acount_pass)
 
     if check_file_existence.check_jsonfile_existence(id):
-        print("Key already exists in the JSON file.")
+        print("jsonファイルは書き換えない.")
+        sys.stdout.flush()
+        a =1
     else:
-        print("Checking as the key does not already exist in the JSON file.")
+        print("jsonファイルを書き換える.")
+        sys.stdout.flush()
         get_target_user_info.main(driver,id)
 
     # with open("..\data2\\USER_DATA.json", "r") as tf:
     #     target_id_data = json.load(tf)
 
     if check_file_existence.check_txtfile_existence(id,search_type):
-        print("That target_id already exists as a txt file.")
+        print("txtファイルを再収集しない.")
+        sys.stdout.flush()
+        a =1
     else:
-        print("I will check as the target_id does not exist as a txt file.")
+        print("txtファイルを再収集する.")
+        sys.stdout.flush()
         get_id.main(driver,id,search_type)
+        print("収集終わり")
+        sys.stdout.flush()
     
 
         
@@ -107,9 +119,13 @@ if __name__ == "__main__":
     with open(f"../data2/following/following - 第1段目 - all_ID.txt")as f:
         id_set = set([s.rstrip() for s in f.readlines()])
     num = 0
+    uniq = uuid.uuid4()
     for i in id_set:
 
         num += 1
         # if num%100 == 0:
         #     login_twitter.login_twitter(driver,acount_id,acount_pass)
+        print(f"iam   ||||| {uniq} |||||   "+"NOW searching for    ||||| "+i+f".txt |||||   ||||| {num}番目の検索 |||||")
+        sys.stdout.flush()
+        # time.sleep(0.5)
         GET_FOLLOWS(i.replace(".txt",""),"following")

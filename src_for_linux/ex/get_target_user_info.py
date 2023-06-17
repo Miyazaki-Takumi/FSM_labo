@@ -1,7 +1,8 @@
 
 from selenium.webdriver.common.by import By
 import json
-
+import time
+from selenium.common.exceptions import TimeoutException
 
 # with open("variables.json", "r") as tf:
 #     variables_dict = json.load(tf)
@@ -10,7 +11,18 @@ import json
 
 def get_target_user_info(driver,id):
 
-    driver.get(f"https://twitter.com/{id}")
+    try:
+        start = time.time()
+        driver.get(f"https://twitter.com/{id}")
+    except TimeoutException:
+        finish = time.time()
+        print(f"driver.getにかかった時間は{finish-start}秒です")
+        print("timeoutエラーが出たので停止します")
+        print("-------------")
+    finish = time.time()
+    # print(f"driver.getにかかった時間は{finish-start}秒です")
+
+
 
     try:
         introduce = driver.find_element(By.XPATH,"//div[@class='css-901oao r-18jsvk2 r-37j5jr r-a023e6 r-16dba41 r-rjixqe r-bcqeeo r-qvutc0']").text.replace("\u3000","").replace("\n"," ")

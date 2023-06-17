@@ -24,7 +24,7 @@ def scroll_to_elem(driver):
     actions = ActionChains(driver)
     actions.move_to_element(last_elem)
     actions.perform()
-    print("-----------------------------------スクロールしたよ!!")
+    # print("-----------------------------------スクロールしたよ!!")
     time.sleep(0.5)
 
 
@@ -39,7 +39,7 @@ def click_retry(driver):
             m = re.findall(p, html)
             class_name = m[4]
             driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
-            print("click")
+            # print("click")
             return True
         
         # elif not driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']"):
@@ -54,19 +54,30 @@ def click_retry(driver):
 
     except IndexError:
         # 最初から読み込み限界
-        html = driver.find_element(By.XPATH,"//div[@aria-label='ホームタイムライン']").get_attribute('innerHTML')
+
+
+        try:
+            html = driver.find_element(By.XPATH,"//div[@aria-label='ホームタイムライン']").get_attribute('innerHTML')
+        
+        except Exception as e:
+            with open(f"errorHTML.html", 'w', encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print(f"now stop {e}")
+
+
+
         if '">問題が発生しました。再読み込みしてください。</span>' in html:
             p = r'class="(.*?)"'
             m = re.findall(p, html)
             class_name = m[-5]
             driver.find_element(By.XPATH,f".//div[@class='{class_name}']").click()
-            print("click")
+            # print("click")
             return True
         
         elif not driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']"):
             LONELY_MAN = True
             return False
-
+    
 
 
 def get_id(driver,id,search_type):
@@ -89,9 +100,9 @@ def get_id(driver,id,search_type):
         # 読み込み限界か?
         while click_retry(driver):
             time.sleep(60)
-
+            print("読み込み限界中・・・")
         
-        for l in range(len(target_user_elems)):
+        for l in range(len(target_user_elems)-1):
             # driver.find_elementsはforごとに読み込まないとたまにエラーが出る
             target_user_elems = driver.find_elements(By.XPATH,"//div[@data-testid='cellInnerDiv']")
 
@@ -105,13 +116,13 @@ def get_id(driver,id,search_type):
 
             # 終わりの空白なら
             if html.count("css-1dbjc4n r-o52ifk") == 2 and scroll_limit_count >= 5:
-                print("-------------読み込み限界みたい")
+                # print("-------------読み込み限界みたい")
                 break
             
 
             # target_id_setへ未知のtarget_idを追加する　↑のtryで代入された空を判別するif
             if target_id != "":
-                print(target_id)
+                # print(target_id)
                 target_id_set.add(target_id)
                 target_id_set_add.add(target_id)
 
@@ -140,24 +151,28 @@ def get_id(driver,id,search_type):
 
 
 def main(driver,id,search_type):
-
+    print("test")
     with open(f"../data2/USER_DATA/{id}.json", "r") as tf:
         target_id_data = json.load(tf)
+        target_value = target_id_data[search_type]
+    print(f"目標値：{target_value}")
     
     # 辞書が空(TwitterIDが削除されたか変更されて存在しない場合)のときはFalse
     if not any(target_id_data):
-        print("SKIP!! Searching for a non-existent user.")
+        # print("SKIP!! Searching for a non-existent user.")
         with open(f"../data2/{search_type}/{id}.txt", 'w', encoding="utf-8") as f:
             for follow_name in set(): f.write(f"{follow_name}\n")
         return False
     # search先が10000を超えていた場合は調べない
     if target_id_data[search_type] > 10000 or target_id_data[search_type] == 0:
-        print("SKIP!! As the search target exceeds 200 or is 0.")
+        # print("SKIP!! As the search target exceeds 200 or is 0.")
         with open(f"../data2/{search_type}/{id}.txt", 'w', encoding="utf-8") as f:
             for follow_name in set(): f.write(f"{follow_name}\n")
+        print("このidはover10000なので調べない・・・")
         return False
     
     get_id(driver,id,search_type)
+    print("再収集")
 
     return
     
@@ -166,3 +181,5 @@ def main(driver,id,search_type):
 
 if __name__ == "__main__":
     print("fuck you")
+
+    # get_id のなかで不適切なURLへアクセスしてる。５５のはずがそれ以上読み込んでる。get_urlしてるところを探す
